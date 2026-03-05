@@ -24,7 +24,9 @@ export default function PendingApprovalsModal() {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (modalOpen) dispatch(fetchPendingApplications());
+    if (modalOpen) {
+      dispatch(fetchPendingApplications()); // Fetch pending applications only when modal opens
+    }
   }, [modalOpen, dispatch]);
 
   // ESC key close
@@ -39,12 +41,20 @@ export default function PendingApprovalsModal() {
   if (!modalOpen) return null;
 
   const handleOutsideClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (modalRef.current && !modalRef.current.contains(e.target as Node)) dispatch(closePendingModal());
+    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      dispatch(closePendingModal()); // Close modal on outside click
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={handleOutsideClick}>
-      <div ref={modalRef} className="bg-[#1f1f1f] w-full max-w-4xl rounded-2xl p-6 overflow-y-auto max-h-[80vh]">
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      onClick={handleOutsideClick}
+    >
+      <div
+        ref={modalRef}
+        className="bg-[#1f1f1f] w-full max-w-4xl rounded-2xl p-6 overflow-y-auto max-h-[80vh]"
+      >
         <h2 className="text-2xl font-bold text-[#FBB040] mb-6">Pending Applications</h2>
 
         {loading && <p className="text-gray-400">Loading...</p>}
@@ -52,7 +62,6 @@ export default function PendingApprovalsModal() {
 
         {!loading && applications.map((app: PendingApplication) => (
           <div key={app.id} className="bg-[#2a2a2a] rounded-xl p-5 mb-5 flex flex-col gap-3">
-            
             {/* Top row: Applicant */}
             <div className="flex items-center gap-4">
               <img

@@ -5,7 +5,6 @@ import StatsRow from "../components/dashboard/StatsRow";
 import RecentJobs from "../components/dashboard/RecentJobs";
 import RecentWorkers from "../components/dashboard/RecentWorkers";
 import AprovalCard from "../components/dashboard/AprovalCard";
-import JobNotificationModal from "../components/dashboard/JobNotificationModal";
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -15,16 +14,16 @@ export default function Dashboard() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <JobNotificationModal />
         <main className="p-4 md:p-6 space-y-5 overflow-x-hidden">
           <StatsRow />
           <AprovalCard />
+
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
             <RecentJobs />
             <RecentWorkers />
           </div>
-          {/* <PlatformActivity /> */}
         </main>
+
       </div>
     </div>
   );

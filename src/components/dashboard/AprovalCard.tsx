@@ -2,34 +2,23 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { ArrowRight, CheckCircle, Grid3X3 } from "lucide-react";
 import type { RootState, AppDispatch } from "../../store";
-import {
-  openPendingModal,
-  fetchPendingApplications,
-} from "../../store/features/pendingApprovalsSlice";
+import { openPendingModal } from "../../store/features/engagementSlice"; 
 import PendingApprovalsModal from "./PendingApprovalsModal";
 import { fetchUsers } from "../../store/features/usersSlice";
+import { fetchEngagementStats } from "../../store/features/engagementSlice"; 
 
 export default function DashboardCards() {
   const dispatch = useDispatch<AppDispatch>();
 
   // Redux states
-  const { applications, modalOpen } = useSelector(
-    (state: RootState) => state.pendingApprovals,
+  const { pendingApprovals, acceptedJobs, activeUsers, pendingModalOpen } = useSelector(
+    (state: RootState) => state.engagement
   );
-  const users = useSelector((state: RootState) => state.users.all);
 
-  const pendingApprovals = applications.filter(
-    (a) => a.status === "pending",
-  ).length;
-  const acceptedJobs = applications.filter(
-    (a) => a.status === "accepted",
-  ).length;
-  const activeUsers = users.filter((u) => u.status === "Active").length;
 
-  // Fetch pending applications & users on mount
   useEffect(() => {
-    dispatch(fetchPendingApplications());
-    dispatch(fetchUsers());
+    dispatch(fetchUsers()); 
+    dispatch(fetchEngagementStats()); 
   }, [dispatch]);
 
   const stats = [
@@ -37,11 +26,11 @@ export default function DashboardCards() {
       title: "Pending Approvals",
       value: pendingApprovals,
       type: "pending",
-      onClick: () => dispatch(openPendingModal()),
+      onClick: () => dispatch(openPendingModal()), 
     },
     {
       title: "Accepted Jobs",
-      value: acceptedJobs,
+      value: acceptedJobs, 
       type: "accepted",
     },
     {
@@ -80,15 +69,17 @@ export default function DashboardCards() {
                 </h2>
               </div>
 
-              {card.type === "pending" && (
+              {/* Button to open pending modal */}
+              {/* {card.type === "pending" && (
                 <button
                   onClick={card.onClick}
                   className="flex items-center gap-1.5 bg-[#FBB040] text-black text-sm font-medium px-4 py-2 rounded-full hover:bg-[#f5a623] transition-colors"
                 >
                   Review <ArrowRight size={16} />
                 </button>
-              )}
+              )} */}
 
+              {/* Icon for accepted jobs */}
               {isAccepted && (
                 <CheckCircle
                   size={32}
@@ -96,6 +87,8 @@ export default function DashboardCards() {
                   strokeWidth={1.5}
                 />
               )}
+
+              {/* Icon for active users */}
               {isActive && (
                 <Grid3X3
                   size={32}
@@ -108,7 +101,8 @@ export default function DashboardCards() {
         })}
       </div>
 
-      {modalOpen && <PendingApprovalsModal />}
+      {/* Show the modal if it's open */}
+      {pendingModalOpen && <PendingApprovalsModal />}
     </>
   );
 }

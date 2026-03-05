@@ -92,7 +92,7 @@ export default function StatsRow() {
     },
     {
       title: "Revenue",
-      value: `€${revenue}`,
+      value: `€${revenue/100}`,
       icon: Euro,
       iconColor: "#000",
       bgColor: "#9CA3AF",

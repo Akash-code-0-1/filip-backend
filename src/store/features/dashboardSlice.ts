@@ -1,4 +1,4 @@
-// src/store/features/dashboardSlice.ts
+
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 export interface DashboardState {

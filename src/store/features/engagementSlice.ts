@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/tool
 import { collection, query, where, getDocs, getCountFromServer } from "firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 
+// Define interfaces for state and job application
 interface EngagementState {
   pendingApprovals: number;
   acceptedJobs: number;
@@ -16,7 +17,7 @@ export interface JobApplication {
   jobId: string;
   jobOwnerId: string;
   status: string;
-  createdAt: number;
+  createdAt: number; // Store as a number (milliseconds)
 }
 
 const initialState: EngagementState = {
@@ -32,29 +33,40 @@ export const fetchEngagementStats = createAsyncThunk(
   "engagement/fetchStats",
   async (_, { dispatch }) => {
     try {
-      // Pending approvals
-      const pendingSnap = await getDocs(query(collection(firestore, "jobApplications"), where("status", "==", "pending")));
-      const pendingApplications: JobApplication[] = pendingSnap.docs.map(doc => ({
+      // Fetch pending job applications
+      const pendingSnap = await getDocs(
+        query(collection(firestore, "jobApplications"), where("status", "==", "pending"))
+      );
+      const pendingApplications: JobApplication[] = pendingSnap.docs.map((doc) => ({
         id: doc.id,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(doc.data() as any),
-        createdAt: doc.data().createdAt?.seconds ? doc.data().createdAt.seconds * 1000 : Date.now(),
+        createdAt: doc.data().createdAt?.seconds
+          ? doc.data().createdAt.seconds * 1000 
+          : Date.now(), // Default to current time if no timestamp
       }));
 
-      // Accepted jobs
-      const acceptedSnap = await getDocs(query(collection(firestore, "jobApplications"), where("status", "==", "accepted")));
-      const acceptedJobs = acceptedSnap.size;
+      // Fetch accepted job applications from "engagements" collection
+      const acceptedSnap = await getDocs(
+        query(collection(firestore, "engagements"), where("status", "==", "accepted"))
+      );
+      const acceptedJobs = acceptedSnap.size; // Simply count the number of accepted jobs
 
-      // Active users
-      const activeSnap = await getCountFromServer(query(collection(firestore, "users"), where("active", "==", true)));
+      // Fetch active users
+      const activeSnap = await getCountFromServer(
+        query(collection(firestore, "users"), where("active", "==", true))
+      );
       const activeUsers = activeSnap.data().count;
 
-      dispatch(setEngagementStats({
-        pendingApprovals: pendingApplications.length,
-        acceptedJobs,
-        activeUsers,
-        pendingApplications
-      }));
+      // Dispatch action to update the stats in the state
+      dispatch(
+        setEngagementStats({
+          pendingApprovals: pendingApplications.length,
+          acceptedJobs, // Just the count of accepted jobs
+          activeUsers,
+          pendingApplications,
+        })
+      );
     } catch (err) {
       console.error("Error fetching engagement stats:", err);
     }
@@ -72,13 +84,14 @@ const engagementSlice = createSlice({
       state.pendingApplications = action.payload.pendingApplications ?? [];
     },
     openPendingModal: (state) => {
-      state.pendingModalOpen = true;
+      state.pendingModalOpen = true; // Set modal to open
     },
     closePendingModal: (state) => {
-      state.pendingModalOpen = false;
+      state.pendingModalOpen = false; // Set modal to closed
     },
   },
 });
 
 export const { setEngagementStats, openPendingModal, closePendingModal } = engagementSlice.actions;
 export default engagementSlice.reducer;
+
