@@ -1,122 +1,151 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
+import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 import { Upload } from "lucide-react";
-import { useDispatch, useSelector } from "react-redux";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth, firestore } from "../firebaseConfig";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import {
   updateProfileInfo,
   updateProfilePicture,
-} from "../store/features/adminSlice"; // Redux actions
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Firebase Storage
-import { firestore } from "../firebaseConfig"; // Firestore
-import { doc, updateDoc } from "firebase/firestore"; // Firestore update
+} from "../store/features/adminSlice";
+import {
+  updateUserPassword,
+  resetPasswordState,
+} from "../store/features/updatePasswordSlice";
 
-const tabs = ["Profile", "Notification", "Security", "Billing"];
+// Tab options
+const tabs = ["Profile", "Security"];
 
-const notificationSettings = [
-  {
-    title: "New Job Applications",
-    description: "Get Notified When Workers Apply To Your Jobs",
-    enabled: true,
-  },
-  {
-    title: "Messages",
-    description: "Receive Notifications For New Messages",
-    enabled: true,
-  },
-  {
-    title: "Availability Updates",
-    description: "Updates About Job Status Changes",
-    enabled: true,
-  },
-  {
-    title: "Marketing Emails",
-    description: "Receive Tips And Platform Updates",
-    enabled: false,
-  },
-  {
-    title: "Weekly Digest",
-    description: "Weekly Summary Of Platform Activity",
-    enabled: false,
-  },
-];
+// Typed Redux state
+interface RootState {
+  admin: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    profilePicture: string;
+  };
+  password: {
+    loading: boolean;
+    success: boolean;
+    error: string | null;
+  };
+}
+
+// Typed useSelector
+const useTypedSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 export default function SettingsPage() {
-  const dispatch = useDispatch();
-  const admin = useSelector((state) => state.admin);
+  const dispatch = useDispatch(); // useDispatch correctly
+  const navigate = useNavigate();
+
+  const admin = useTypedSelector((state) => state.admin);
+  const { loading, success, error } = useTypedSelector((state) => state.password);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Profile");
-  const [notifications, setNotifications] = useState(notificationSettings);
 
-  // Set initial form state based on Redux state
   const [firstName, setFirstName] = useState(admin.firstName || "");
   const [lastName, setLastName] = useState(admin.lastName || "");
   const [email, setEmail] = useState(admin.email || "");
   const [phone, setPhone] = useState(admin.phone || "");
 
-  // Ensure the state is updated when the Redux state changes
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Fetch admin data
   useEffect(() => {
-    setFirstName(admin.firstName);
-    setLastName(admin.lastName);
-    setEmail(admin.email);
-    setPhone(admin.phone);
-  }, [admin]);
+    const fetchAdmin = async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const storage = getStorage();
-      const storageRef = ref(storage, `admin/${file.name}`); // Store in the 'admin' folder
+      const adminRef = doc(firestore, "admin", uid);
+      const snapshot = await getDoc(adminRef);
 
-      try {
-        await uploadBytes(storageRef, file); // Upload the file
-        const downloadURL = await getDownloadURL(storageRef); // Get the image URL
-
-        // Update Redux state with the image URL
-        dispatch(updateProfilePicture(downloadURL));
-
-        // Update Firestore with the new profile picture URL
-        const adminRef = doc(firestore, "admin", "adminUID"); // Replace with the correct UID
-        await updateDoc(adminRef, { profilePicture: downloadURL });
-
-        console.log("Profile image uploaded successfully!");
-      } catch (error) {
-        console.error("Error uploading image:", error);
+      if (snapshot.exists()) {
+        dispatch(updateProfileInfo(snapshot.data()));
+        dispatch(updateProfilePicture(snapshot.data().profilePicture));
       }
+    };
+    fetchAdmin();
+  }, [dispatch]);
+
+  // Profile image upload
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    const storage = getStorage();
+    const storageRef = ref(storage, `admin/${uid}-${file.name}`);
+
+    try {
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      dispatch(updateProfilePicture(downloadURL));
+
+      const adminRef = doc(firestore, "admin", uid);
+      await updateDoc(adminRef, { profilePicture: downloadURL });
+    } catch (error) {
+      console.error("Error uploading image:", error);
     }
   };
 
+  // Profile update
   const handleProfileUpdate = async () => {
-    // Update the profile info in Redux
-    dispatch(
-      updateProfileInfo({
-        firstName,
-        lastName,
-        email,
-        phone,
-      }),
-    );
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
 
-    // Update the Firestore with the new profile info
-    const adminRef = doc(firestore, "admin", "adminUID"); // Replace with the correct UID
+    const updatedData = {
+      firstName: firstName || admin.firstName,
+      lastName: lastName || admin.lastName,
+      email: email || admin.email,
+      phone: phone || admin.phone,
+    };
+
+    dispatch(updateProfileInfo(updatedData));
+
     try {
-      await updateDoc(adminRef, {
-        firstName,
-        lastName,
-        email,
-        phone,
-      });
-      console.log("Profile updated successfully");
+      const adminRef = doc(firestore, "admin", uid);
+      await updateDoc(adminRef, updatedData);
+
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPhone("");
     } catch (error) {
       console.error("Error updating profile:", error);
     }
   };
 
-  const toggleNotification = (index: number) => {
-    setNotifications((prev) =>
-      prev.map((n, i) => (i === index ? { ...n, enabled: !n.enabled } : n)),
-    );
+  // Password success handler
+  useEffect(() => {
+    if (success) {
+      alert("Password updated successfully. Please login again.");
+      dispatch(resetPasswordState());
+      navigate("/login");
+    }
+  }, [success, dispatch, navigate]);
+
+  // Password update
+  const handlePasswordUpdate = () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      alert("All fields required");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+
+    dispatch(updateUserPassword({ currentPassword, newPassword }));
   };
 
   return (
@@ -197,6 +226,7 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="text"
+                      placeholder={admin.firstName}
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
@@ -208,6 +238,7 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="text"
+                      placeholder={admin.lastName}
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
@@ -219,6 +250,7 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="email"
+                      placeholder={admin.email}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
@@ -230,6 +262,7 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="tel"
+                      placeholder={admin.phone}
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
@@ -238,7 +271,7 @@ export default function SettingsPage() {
                 </div>
                 <button
                   onClick={handleProfileUpdate}
-                  className="mt-5 px-5 py-2.5 bg-[#FBB040] text-black rounded-lg text-sm font-medium hover:bg-[#f5a623] transition-colors"
+                  className="mt-5 px-5 py-2.5 cursor-pointer hover:bg-amber-500 bg-[#FBB040] text-black rounded-lg text-sm font-medium hover:bg-[#f5a623] transition-colors"
                 >
                   Save Changes
                 </button>
@@ -247,7 +280,7 @@ export default function SettingsPage() {
           )}
 
           {/* Notification Tab */}
-          {activeTab === "Notification" && (
+          {/* {activeTab === "Notification" && (
             <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5">
               <h3 className="font-semibold mb-1">Notification Preferences</h3>
               <p className="text-xs text-gray-400 mb-6">
@@ -281,7 +314,7 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Security Tab */}
           {activeTab === "Security" && (
@@ -292,72 +325,69 @@ export default function SettingsPage() {
                 <p className="text-xs text-gray-400 mb-4">
                   Update Your Password To Keep Your Account Secure
                 </p>
+
                 <div className="space-y-4 max-w-xl">
+                  {/* Current Password */}
                   <div>
                     <label className="text-xs text-gray-400 block mb-2">
                       Current Password
                     </label>
                     <input
                       type="password"
-                      defaultValue="********"
-                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
+                      placeholder="Enter current password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:outline-none focus:border-[#FBB040]/50"
                     />
                   </div>
+
+                  {/* New Password */}
                   <div>
                     <label className="text-xs text-gray-400 block mb-2">
                       New Password
                     </label>
                     <input
                       type="password"
-                      defaultValue="********"
-                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:outline-none focus:border-[#FBB040]/50"
                     />
                   </div>
+
+                  {/* Confirm Password */}
                   <div>
                     <label className="text-xs text-gray-400 block mb-2">
                       Confirm New Password
                     </label>
                     <input
                       type="password"
-                      defaultValue="********"
-                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
+                      placeholder="Re-enter new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:outline-none focus:border-[#FBB040]/50"
                     />
                   </div>
                 </div>
-                <button className="mt-5 px-5 py-2.5 border border-[#FBB040] text-[#FBB040] rounded-lg text-sm font-medium hover:bg-[#FBB040]/10 transition-colors">
-                  Updated Password
-                </button>
-              </div>
 
-              {/* Two-Factor Authentication */}
-              <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5">
-                <h3 className="font-semibold mb-1">
-                  Two-Factor Authentication
-                </h3>
-                <p className="text-xs text-gray-400 mb-4">
-                  Add An Extra Layer Of Security To Your Account
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs bg-[#2a2a2a] text-gray-400 px-3 py-1.5 rounded-lg">
-                      Not Enabled
-                    </span>
-                    <span className="text-sm text-gray-400">
-                      Protect Your Account With 2FA
-                    </span>
-                  </div>
-                  <button className="px-4 py-2 bg-[#FBB040] text-black rounded-lg text-sm font-medium hover:bg-[#f5a623] transition-colors">
-                    Enabled 2FA
-                  </button>
-                </div>
+                <button
+                  onClick={handlePasswordUpdate}
+                  disabled={loading}
+                  className="mt-5 px-5 py-2.5 border border-[#FBB040] text-[#FBB040] rounded-lg hover:bg-[#FBB040]/10 transition-colors"
+                >
+                  {loading ? "Updating..." : "Update Password"}
+                </button>
+
+                {/* Error message */}
+                {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
               </div>
             </div>
           )}
 
           {/* Billing Tab */}
-          {activeTab === "Billing" && (
+
+          {/* {activeTab === "Billing" && (
             <div className="space-y-4">
-              {/* Current Plan */}
               <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5">
                 <h3 className="font-semibold mb-1">Current Plan</h3>
                 <p className="text-xs text-gray-400 mb-4">
@@ -382,7 +412,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Payment Method */}
               <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5">
                 <h3 className="font-semibold mb-1">Payment Method</h3>
                 <p className="text-xs text-gray-400 mb-4">
@@ -404,7 +433,7 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
         </main>
       </div>
     </div>

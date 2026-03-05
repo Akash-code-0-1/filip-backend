@@ -1,23 +1,22 @@
-import { createSlice, createAsyncThunk, type PayloadAction} from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { query, where, getDocs, collection } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, firestore } from "../../firebaseConfig";
 
-// Type for admin data
 interface Admin {
-  id?: string;
-  name: string;
+  id: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  [key: string]: unknown; // For extra fields
+  phone?: string;
+  profilePicture?: string;
 }
 
-// Type for thunk argument
 interface LoginArgs {
   email: string;
   password: string;
 }
 
-// Type for slice state
 interface AuthState {
   admin: Admin | null;
   loading: boolean;
@@ -32,38 +31,33 @@ export const loginAdmin = createAsyncThunk<
   "auth/loginAdmin",
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      // Login with Firebase (no need to use 'user' here)
-      await signInWithEmailAndPassword(auth, email, password);
+      // 1️⃣ Firebase Auth login
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCred.user.uid;
 
-      const adminRef = collection(firestore, "admin");
-      const q = query(adminRef, where("email", "==", email));
-      const querySnapshot = await getDocs(q);
+      // 2️⃣ Fetch admin doc by UID
+      const adminRef = doc(firestore, "admin", uid);
+      const adminSnap = await getDoc(adminRef);
 
-      if (!querySnapshot.empty) {
-        const adminDoc = querySnapshot.docs[0];
-        const adminData = adminDoc.data() as Admin;
-
-        localStorage.setItem("admin", JSON.stringify(adminData));
-        return adminData;
-      } else {
-        return rejectWithValue("Admin data not found in Firestore.");
-      }
-    } catch (error: unknown) {
-      let errorMessage = "Unknown error";
-
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === "string") {
-        errorMessage = error;
+      if (!adminSnap.exists()) {
+        return rejectWithValue("Not an admin account");
       }
 
-      return rejectWithValue(errorMessage);
+      const adminData = { id: uid, ...adminSnap.data() } as Admin;
+      localStorage.setItem("admin", JSON.stringify(adminData));
+
+      return adminData;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      return rejectWithValue(err.message);
     }
   }
 );
 
 const initialState: AuthState = {
-  admin: localStorage.getItem("admin") ? JSON.parse(localStorage.getItem("admin")!) : null,
+  admin: localStorage.getItem("admin")
+    ? JSON.parse(localStorage.getItem("admin")!)
+    : null,
   loading: false,
   error: null,
 };
@@ -83,13 +77,13 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(loginAdmin.fulfilled, (state, action: PayloadAction<Admin>) => {
+      .addCase(loginAdmin.fulfilled, (state, action) => {
         state.loading = false;
         state.admin = action.payload;
       })
       .addCase(loginAdmin.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Unknown error";
+        state.error = action.payload ?? "Login failed";
       });
   },
 });

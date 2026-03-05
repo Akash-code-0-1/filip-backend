@@ -1,85 +1,123 @@
-import { Users, Briefcase, Euro, TrendingUp } from "lucide-react";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Users, Briefcase, Euro } from "lucide-react";
 import Card from "./Card";
+import {
+  collection,
+  query,
+  where,
+  getCountFromServer,
+  getDocs,
+} from "firebase/firestore";
+import { firestore } from "../../firebaseConfig";
+import { setDashboardStats } from "../../store/features/dashboardSlice";
+import type { RootState} from "../../store";
 
 export default function StatsRow() {
-    const stats = [
-        {
-            title: "Total Users",
-            value: "2,847",
-            change: "+12% from last month",
-            changeColor: "#F59E0B",
-            icon: Users,
-            iconColor: "#F59E0B",
-            bgColor: "rgba(251, 176, 64, 0.15)",
-        },
-        {
-            title: "Active Workers",
-            value: "1,532",
-            change: "+8% from last month",
-            changeColor: "#4CAF50",
-            icon: Users,
-            iconColor: "#4CAF50",
-            bgColor: "rgba(76, 175, 80, 0.15)",
-        },
-        {
-            title: "Open Jobs",
-            value: "156",
-            change: "23 new this week",
-            changeColor: "#9CA3AF",
-            icon: Briefcase,
-            iconColor: "#F59E0B",
-            bgColor: "rgba(251, 176, 64, 0.15)",
-        },
-        {
-            title: "Revenue",
-            value: "$126K",
-            change: "+12.5% growth",
-            changeColor: "#4CAF50",
-            icon: Euro,
-            iconColor: "#000",
-            bgColor: "#9CA3AF",
-        },
-    ];
+  const dispatch = useDispatch();
+  const { totalUsers, activeWorkers, openJobs, revenue } = useSelector(
+    (state: RootState) => state.dashboard,
+  );
 
-    return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {stats.map((stat) => {
-                const Icon = stat.icon;
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const totalUsersSnapshot = await getCountFromServer(
+          collection(firestore, "users"),
+        );
+        const totalUsers = totalUsersSnapshot.data().count;
 
-                return (
-                    <Card key={stat.title} className="p-4 sm:p-5">
-                        <div className="flex justify-between items-start">
-                            <p className="text-sm text-gray-400">
-                                {stat.title}
-                            </p>
+        const activeWorkersSnapshot = await getCountFromServer(
+          query(
+            collection(firestore, "users"),
+            where("profile.openToWork", "==", true),
+          ),
+        );
+        const activeWorkers = activeWorkersSnapshot.data().count;
 
-                            <div
-                                className="p-2 rounded-lg"
-                                style={{ backgroundColor: stat.bgColor }}
-                            >
-                                <Icon
-                                    size={18}
-                                    style={{ color: stat.iconColor }}
-                                />
-                            </div>
-                        </div>
+        const openJobsSnapshot = await getCountFromServer(
+          collection(firestore, "jobs"),
+        );
+        const openJobs = openJobsSnapshot.data().count;
 
-                        <p className="text-2xl sm:text-3xl font-bold mt-1">
-                            {stat.value}
-                        </p>
+        let totalRevenue = 0;
+        try {
+          const paymentsSnapshot = await getDocs(
+            collection(firestore, "stripePayments"),
+          );
+          paymentsSnapshot.forEach((doc) => {
+            totalRevenue += doc.data().amount;
+          });
+        } catch {
+          totalRevenue = 0;
+        }
 
-                        <p 
-                            className="text-xs mt-2 flex items-center gap-1"
-                            style={{ color: stat.changeColor }}
-                        >
-                            {stat.changeColor === "#4CAF50" || stat.changeColor === "#F59E0B" ? (
-                                <TrendingUp size={12} />
-                            ) : null}
-                            {stat.change}
-                        </p>
-                    </Card>
-                );
-            })}
-        </div>
-    );
+        dispatch(
+          setDashboardStats({
+            totalUsers,
+            activeWorkers,
+            openJobs,
+            revenue: totalRevenue,
+          }),
+        );
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      }
+    };
+
+    fetchStats();
+  }, [dispatch]);
+
+  const stats = [
+    {
+      title: "Total Users",
+      value: totalUsers,
+      icon: Users,
+      iconColor: "#F59E0B",
+      bgColor: "rgba(251, 176, 64, 0.15)",
+    },
+    {
+      title: "Active Workers",
+      value: activeWorkers,
+      icon: Users,
+      iconColor: "#4CAF50",
+      bgColor: "rgba(76, 175, 80, 0.15)",
+    },
+    {
+      title: "Open Jobs",
+      value: openJobs,
+      icon: Briefcase,
+      iconColor: "#F59E0B",
+      bgColor: "rgba(251, 176, 64, 0.15)",
+    },
+    {
+      title: "Revenue",
+      value: `€${revenue}`,
+      icon: Euro,
+      iconColor: "#000",
+      bgColor: "#9CA3AF",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {stats.map((stat) => {
+        const Icon = stat.icon;
+        return (
+          <Card key={stat.title} className="p-4 sm:p-5">
+            <div className="flex justify-between items-start">
+              <p className="text-sm text-gray-400">{stat.title}</p>
+              <div
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: stat.bgColor }}
+              >
+                <Icon size={18} style={{ color: stat.iconColor }} />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold mt-1">{stat.value}</p>
+          </Card>
+        );
+      })}
+    </div>
+  );
 }

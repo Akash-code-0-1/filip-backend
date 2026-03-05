@@ -1,4 +1,4 @@
-import { LogOut, X, LayoutDashboard, Users, Briefcase, CalendarCheck, Settings } from "lucide-react";
+import { LogOut, X, LayoutDashboard, Users, CalendarCheck, Settings } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth"; // Import Firebase signOut
 import { auth } from "../../firebaseConfig"; // Import initialized services
@@ -13,8 +13,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     
     const items = [
         { label: "Dashboard", icon: LayoutDashboard, path: "/" },
-        { label: "Workers", icon: Users, path: "/workers" },
-        { label: "Employers", icon: Briefcase, path: "/employers" },
+        { label: "Users", icon: Users, path: "/users" },
+        // { label: "Employers", icon: Briefcase, path: "/employers" },
         { label: "Availability", icon: CalendarCheck, path: "/availability" },
         { label: "Settings", icon: Settings, path: "/settings" },
     ];

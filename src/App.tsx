@@ -31,8 +31,8 @@ import type { RootState } from "./store";
 
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
-import Workers from "./pages/Workers";
-import Employers from "./pages/Employers";
+import Users from "./pages/Users";
+// import Employers from "./pages/Employers";
 import Availability from "./pages/Availability";
 import SettingsPage from "./pages/Settings";
 
@@ -49,13 +49,13 @@ function App() {
           element={admin ? <Dashboard /> : <Navigate to="/login" />}
         />
         <Route
-          path="/workers"
-          element={admin ? <Workers /> : <Navigate to="/login" />}
+          path="/users"
+          element={admin ? <Users /> : <Navigate to="/login" />}
         />
-        <Route
+        {/* <Route
           path="/employers"
           element={admin ? <Employers /> : <Navigate to="/login" />}
-        />
+        /> */}
         <Route
           path="/availability"
           element={admin ? <Availability /> : <Navigate to="/login" />}
