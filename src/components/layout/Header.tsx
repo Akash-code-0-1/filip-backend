@@ -176,6 +176,7 @@ export default function Header({
                 }
                 alt="Admin avatar"
               />
+              
             </div>
           </div>
         </div>
