@@ -29,7 +29,7 @@ export interface User {
   name: string;
   email: string;
   location: string;
-  status: "Active" | "Pending" | "Suspended";
+  status: "Active" | "Offline";
   rating: number;
   skills: string[];
   avatar: string;
@@ -45,7 +45,7 @@ interface UsersState {
   filtered: User[];
   transactions: CreditTransaction[];
   search: string;
-  statusFilter: "All" | "Active" | "Pending" | "Suspended";
+  statusFilter: "All" | "Active" | "Offline"
   loading: boolean;
 }
 
@@ -67,7 +67,7 @@ export const fetchUsers = createAsyncThunk<User[]>(
         skills: data.skills || data.profile?.skills || [],
         rating: data.rating || data.profile?.rating || 0,
         avatar: data.profile?.photo || "https://via.placeholder.com/40",
-        status: data.active ? "Active" : "Suspended",
+        status: data.active ? "Active" : "Offline",
         credits: data.credits || { balance: 0 },
         createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
       };

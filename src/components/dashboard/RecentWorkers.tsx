@@ -1,4 +1,3 @@
-// src/components/dashboard/RecentWorkers.tsx
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { collection, query, orderBy, limit, where, getDocs } from "firebase/firestore";

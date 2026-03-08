@@ -10,6 +10,7 @@ import availabilityReducer from "./features/availabilitySlice";
 import usersReducer from "./features/usersSlice";
 import notificationsReducer from "./features/notificationsSlice";
 import pendingApprovalsRerucer from "./features/pendingApprovalsSlice";
+import reviewsReducer from "./features/reviewsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -23,7 +24,8 @@ export const store = configureStore({
     availability: availabilityReducer,
     users: usersReducer,
     notifications: notificationsReducer,
-    pendingApprovals: pendingApprovalsRerucer
+    pendingApprovals: pendingApprovalsRerucer,
+    reviews: reviewsReducer
   },
 });
 

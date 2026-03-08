@@ -1,5 +1,9 @@
 import { useState, useEffect, type ChangeEvent } from "react";
-import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
+import {
+  useDispatch,
+  useSelector,
+  type TypedUseSelectorHook,
+} from "react-redux";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
@@ -43,7 +47,9 @@ export default function SettingsPage() {
   const navigate = useNavigate();
 
   const admin = useTypedSelector((state) => state.admin);
-  const { loading, success, error } = useTypedSelector((state) => state.password);
+  const { loading, success, error } = useTypedSelector(
+    (state) => state.password,
+  );
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Profile");
@@ -244,6 +250,7 @@ export default function SettingsPage() {
                       className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
                     />
                   </div>
+
                   <div>
                     <label className="text-xs text-gray-400 block mb-2">
                       Email
@@ -252,10 +259,11 @@ export default function SettingsPage() {
                       type="email"
                       placeholder={admin.email}
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50"
+                      disabled
+                      className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-sm focus:outline-none focus:border-[#FBB040]/50 cursor-not-allowed"
                     />
                   </div>
+
                   <div>
                     <label className="text-xs text-gray-400 block mb-2">
                       Phone
@@ -278,43 +286,6 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-
-          {/* Notification Tab */}
-          {/* {activeTab === "Notification" && (
-            <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5">
-              <h3 className="font-semibold mb-1">Notification Preferences</h3>
-              <p className="text-xs text-gray-400 mb-6">
-                Choose How You Want To Be Notified
-              </p>
-              <div className="space-y-4">
-                {notifications.map((setting, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between py-3 border-b border-[#2a2a2a] last:border-0"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{setting.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {setting.description}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => toggleNotification(index)}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${
-                        setting.enabled ? "bg-[#4CAF50]" : "bg-[#3a3a3a]"
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                          setting.enabled ? "right-1" : "left-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )} */}
 
           {/* Security Tab */}
           {activeTab === "Security" && (
@@ -383,57 +354,6 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-
-          {/* Billing Tab */}
-
-          {/* {activeTab === "Billing" && (
-            <div className="space-y-4">
-              <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5">
-                <h3 className="font-semibold mb-1">Current Plan</h3>
-                <p className="text-xs text-gray-400 mb-4">
-                  Manage Your Subscription
-                </p>
-                <div className="bg-[#FBB040] rounded-xl p-5 flex items-center justify-between">
-                  <div>
-                    <span className="text-xs bg-black/20 text-black px-2 py-1 rounded">
-                      Admin
-                    </span>
-                    <h4 className="text-lg font-bold text-black mt-2">
-                      Enterprise Plan
-                    </h4>
-                    <p className="text-xs text-black/70">
-                      Unlimited Access To All Features
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-bold text-black">€25</span>
-                    <span className="text-black/70">/Hr</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5">
-                <h3 className="font-semibold mb-1">Payment Method</h3>
-                <p className="text-xs text-gray-400 mb-4">
-                  Manage Your Payment Details
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#FBB040]/20 rounded-lg">
-                      <CreditCard size={20} className="text-[#FBB040]" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">•••• •••• •••• 4242</p>
-                      <p className="text-xs text-gray-400">Expires 12/25</p>
-                    </div>
-                  </div>
-                  <button className="px-4 py-2 bg-[#FBB040] text-black rounded-lg text-sm font-medium hover:bg-[#f5a623] transition-colors">
-                    Update
-                  </button>
-                </div>
-              </div>
-            </div>
-          )} */}
         </main>
       </div>
     </div>

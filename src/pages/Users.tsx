@@ -5,7 +5,6 @@ import Header from "../components/layout/Header";
 import {
   Search,
   Users as UsersIcon,
-  Clock,
   MapPin,
   Star,
   ChevronDown,
@@ -56,11 +55,7 @@ export default function Users() {
     switch (status) {
       case "Active":
         return "bg-[#4CAF50]/20 text-[#4CAF50]";
-      case "Pending":
-        return "bg-[#FBB040]/20 text-[#FBB040]";
-      case "Suspended":
-        return "bg-red-500/20 text-red-400";
-      default:
+      case "Offline":
         return "bg-gray-500/20 text-gray-400";
     }
   };
@@ -68,8 +63,8 @@ export default function Users() {
   const statsData = [
     { label: "Total Users", value: all.length, icon: UsersIcon },
     { label: "Available", value: all.filter(u => u.status === "Active").length, icon: UsersIcon },
-    { label: "Busy", value: all.filter(u => u.status === "Pending").length, icon: Clock },
-    { label: "Offline", value: all.filter(u => u.status === "Suspended").length, icon: UsersIcon },
+    // { label: "Busy", value: all.filter(u => u.status === "Pending").length, icon: Clock },
+    { label: "Offline", value: all.filter(u => u.status === "Offline").length, icon: UsersIcon },
   ];
 
   return (

@@ -5,6 +5,7 @@ import StatsRow from "../components/dashboard/StatsRow";
 import RecentJobs from "../components/dashboard/RecentJobs";
 import RecentWorkers from "../components/dashboard/RecentWorkers";
 import AprovalCard from "../components/dashboard/AprovalCard";
+import ReviewModeration from "../components/dashboard/ReviewModeration";
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function Dashboard() {
             <RecentJobs />
             <RecentWorkers />
           </div>
+          <ReviewModeration />
         </main>
 
       </div>
