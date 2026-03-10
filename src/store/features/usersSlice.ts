@@ -78,7 +78,7 @@ export const fetchUsers = createAsyncThunk<User[]>(
   async () => {
     const q = query(
       collection(firestore, "users"),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
     );
     const snap = await getDocs(q);
 
@@ -93,9 +93,7 @@ export const fetchUsers = createAsyncThunk<User[]>(
         location: data.profile?.city || "Unknown",
         skills: data.skills || data.profile?.skills || [],
         rating: data.rating || data.profile?.rating || 0,
-        avatar:
-          data.profile?.photo ||
-          "https://via.placeholder.com/40",
+        avatar: data.profile?.photo || "https://via.placeholder.com/40",
         status: data.active ? "Active" : "Offline",
         credits: data.credits || { balance: 0 },
         membership: {
@@ -110,7 +108,7 @@ export const fetchUsers = createAsyncThunk<User[]>(
         createdAt: data.createdAt?.toDate?.() || new Date(),
       };
     });
-  }
+  },
 );
 
 // Fetch credit transactions
@@ -120,7 +118,7 @@ export const fetchTransactions = createAsyncThunk(
     const q = query(
       collection(firestore, "creditTransactions"),
       where("userId", "==", userId),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
     );
 
     const snap = await getDocs(q);
@@ -137,7 +135,7 @@ export const fetchTransactions = createAsyncThunk(
         createdAt: data.createdAt?.toDate?.() || new Date(),
       };
     });
-  }
+  },
 );
 
 // Adjust credits
@@ -170,7 +168,7 @@ export const adjustCredits = createAsyncThunk(
     });
 
     return { userId, creditChange: change };
-  }
+  },
 );
 
 // Assign membership
@@ -196,7 +194,7 @@ export const assignMembership = createAsyncThunk(
     });
 
     return { userId, tier, expiresAt };
-  }
+  },
 );
 
 /* ================= FILTER ================= */
@@ -204,12 +202,9 @@ export const assignMembership = createAsyncThunk(
 const applyFilters = (state: UsersState) => {
   state.filtered = state.all.filter((u) => {
     const statusMatch =
-      state.statusFilter === "All" ||
-      u.status === state.statusFilter;
+      state.statusFilter === "All" || u.status === state.statusFilter;
 
-    const text = `${u.name} ${u.email} ${u.skills.join(
-      " "
-    )}`.toLowerCase();
+    const text = `${u.name} ${u.email} ${u.skills.join(" ")}`.toLowerCase();
 
     return statusMatch && text.includes(state.search);
   });
@@ -225,10 +220,7 @@ const usersSlice = createSlice({
       state.search = action.payload.toLowerCase();
       applyFilters(state);
     },
-    setStatusFilter(
-      state,
-      action: PayloadAction<UsersState["statusFilter"]>
-    ) {
+    setStatusFilter(state, action: PayloadAction<UsersState["statusFilter"]>) {
       state.statusFilter = action.payload;
       applyFilters(state);
     },
@@ -252,26 +244,24 @@ const usersSlice = createSlice({
       })
 
       .addCase(adjustCredits.fulfilled, (s, a) => {
-        const u = s.all.find(
-          (x) => x.id === a.payload.userId
-        );
+        const u = s.all.find((x) => x.id === a.payload.userId);
         if (u) u.credits.balance += a.payload.creditChange;
         applyFilters(s);
       })
 
       .addCase(assignMembership.fulfilled, (s, a) => {
-        const u = s.all.find(
-          (x) => x.id === a.payload.userId
-        );
+        const u = s.all.find((x) => x.id === a.payload.userId);
         if (u) {
           u.membership.tier = a.payload.tier;
           u.membership.expiresAt = a.payload.expiresAt;
         }
+
+        // Update filtered array so the UI reflects changes immediately
+        applyFilters(s);
       });
   },
 });
 
-export const { setSearch, setStatusFilter } =
-  usersSlice.actions;
+export const { setSearch, setStatusFilter } = usersSlice.actions;
 
 export default usersSlice.reducer;

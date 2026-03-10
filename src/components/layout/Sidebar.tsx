@@ -116,7 +116,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         border border-red-500 text-red-500
                         rounded-lg py-3
                         hover:bg-red-500 hover:text-black
-                        transition-colors
+                        transition-colors cursor-pointer
                     "
                 >
                     <LogOut size={16} />

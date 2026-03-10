@@ -24,22 +24,25 @@ import type { RootState, AppDispatch } from "../store";
 export default function Users() {
   const dispatch = useDispatch<AppDispatch>();
   const { filtered, all, loading, transactions, statusFilter } = useSelector(
-    (state: RootState) => state.users
+    (state: RootState) => state.users,
   );
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const [amount, setAmount] = useState(0);
-  const [type, setType] =
-    useState<"add" | "deduct" | "refund" | "bonus">("add");
+  const [type, setType] = useState<"add" | "deduct" | "refund" | "bonus">(
+    "add",
+  );
   const [reason, setReason] = useState("");
 
-  const [tier, setTier] =
-    useState<"free" | "basic" | "premium">("free");
-  const [duration, setDuration] =
-    useState<1 | 3 | 12 | "custom">(1);
+  const [tier, setTier] = useState<"free" | "basic" | "premium">("free");
+  const [duration, setDuration] = useState<1 | 3 | 12 | "custom">(1);
   const [customExpiry, setCustomExpiry] = useState("");
+
+  // NEW: Loading state for buttons
+  const [isApplyingCredit, setIsApplyingCredit] = useState(false);
+  const [isAssigningMembership, setIsAssigningMembership] = useState(false);
 
   useEffect(() => {
     dispatch(fetchUsers());
@@ -51,32 +54,33 @@ export default function Users() {
     setTier(user.membership?.tier || "free");
   };
 
-  const applyCredit = () => {
+  const applyCredit = async () => {
     if (!selectedUser) return;
+    setIsApplyingCredit(true);
 
-    dispatch(
+    await dispatch(
       adjustCredits({
         userId: selectedUser.id,
         amount,
         type,
         reason,
-      })
+      }),
     );
 
     setAmount(0);
     setReason("");
+    setIsApplyingCredit(false);
   };
 
-  const applyMembership = () => {
+  const applyMembership = async () => {
     if (!selectedUser) return;
+    setIsAssigningMembership(true);
 
     let expiresAt: Date | null = null;
 
     if (tier !== "free") {
       if (duration === "custom") {
-        expiresAt = customExpiry
-          ? new Date(customExpiry)
-          : null;
+        expiresAt = customExpiry ? new Date(customExpiry) : null;
       } else {
         const d = new Date();
         d.setMonth(d.getMonth() + duration);
@@ -84,13 +88,33 @@ export default function Users() {
       }
     }
 
-    dispatch(
+    // Dispatch membership assignment
+    await dispatch(
       assignMembership({
         userId: selectedUser.id,
         tier,
         expiresAt,
-      })
+      }),
     );
+
+    // Update the local selectedUser state to reflect membership immediately
+    setSelectedUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            membership: {
+              tier,
+              expiresAt,
+              startedAt:
+                tier === "free"
+                  ? null
+                  : prev.membership.startedAt || new Date(),
+            },
+          }
+        : null,
+    );
+
+    setIsAssigningMembership(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -150,7 +174,6 @@ export default function Users() {
         />
 
         <main className="p-4 md:p-6 space-y-5 overflow-x-hidden">
-
           {/* STATS */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {statsData.map((s) => (
@@ -184,12 +207,10 @@ export default function Users() {
             <button
               onClick={() =>
                 dispatch(
-                  setStatusFilter(
-                    statusFilter === "All" ? "Active" : "All"
-                  )
+                  setStatusFilter(statusFilter === "All" ? "Active" : "All"),
                 )
               }
-              className="flex items-center gap-2 px-4 py-3 bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl text-sm"
+              className="flex items-center gap-2 px-4 py-3 bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl text-sm cursor-pointer"
             >
               {statusFilter} <ChevronDown size={16} />
             </button>
@@ -227,7 +248,7 @@ export default function Users() {
 
                           <span
                             className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(
-                              user.status
+                              user.status,
                             )}`}
                           >
                             {user.status}
@@ -278,7 +299,7 @@ export default function Users() {
             </div>
           )}
 
-          {/* ADMIN PANELS (UNCHANGED BELOW) */}
+          {/* ADMIN PANELS*/}
           {selectedUser && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {/* CREDIT PANEL */}
@@ -295,18 +316,13 @@ export default function Users() {
                   type="number"
                   placeholder="Amount"
                   value={amount}
-                  onChange={(e) =>
-                    setAmount(Number(e.target.value))
-                  }
+                  onChange={(e) => setAmount(Number(e.target.value))}
                   className="w-full p-2 bg-[#141414] rounded"
                 />
 
                 <select
                   value={type}
-                  onChange={(e) =>
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    setType(e.target.value as any)
-                  }
+                  onChange={(e) => setType(e.target.value as any)}
                   className="w-full p-2 bg-[#141414] rounded"
                 >
                   <option value="add">Add Credits</option>
@@ -322,16 +338,22 @@ export default function Users() {
                   className="w-full p-2 bg-[#141414] rounded"
                 />
 
+                {/* UPDATED BUTTON */}
                 <button
                   onClick={applyCredit}
-                  className="bg-[#FBB040] text-black px-4 py-2 rounded font-medium"
+                  disabled={isApplyingCredit}
+                  className={`px-4 py-2 rounded font-medium transition
+                    ${
+                      isApplyingCredit
+                        ? "bg-[#FBB040]/80 text-black cursor-not-allowed"
+                        : "bg-[#FBB040] text-black hover:bg-[#fbc14a] cursor-pointer"
+                    }
+                  `}
                 >
-                  Apply Adjustment
+                  {isApplyingCredit ? "Applying..." : "Apply Adjustment"}
                 </button>
 
-                <h3 className="mt-6 font-semibold">
-                  Credit Transactions
-                </h3>
+                <h3 className="mt-6 font-semibold">Credit Transactions</h3>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -345,10 +367,7 @@ export default function Users() {
                     </thead>
                     <tbody>
                       {transactions.map((t) => (
-                        <tr
-                          key={t.id}
-                          className="border-b border-[#2a2a2a]"
-                        >
+                        <tr key={t.id} className="border-b border-[#2a2a2a]">
                           <td className="py-2">
                             {t.createdAt.toLocaleDateString()}
                           </td>
@@ -367,9 +386,7 @@ export default function Users() {
 
               {/* MEMBERSHIP PANEL */}
               <div className="bg-[#1f1f1f] p-6 rounded-xl border border-[#2a2a2a] space-y-5">
-                <h2 className="text-lg font-semibold">
-                  Membership Management
-                </h2>
+                <h2 className="text-lg font-semibold">Membership Management</h2>
 
                 <div className="text-sm text-gray-400 space-y-1">
                   <p>
@@ -383,7 +400,7 @@ export default function Users() {
                     <p>
                       Expires On:{" "}
                       {new Date(
-                        selectedUser.membership.expiresAt
+                        selectedUser.membership.expiresAt,
                       ).toLocaleDateString()}
                     </p>
                   )}
@@ -392,12 +409,7 @@ export default function Users() {
                 <select
                   value={tier}
                   onChange={(e) =>
-                    setTier(
-                      e.target.value as
-                        | "free"
-                        | "basic"
-                        | "premium"
-                    )
+                    setTier(e.target.value as "free" | "basic" | "premium")
                   }
                   className="w-full p-2 bg-[#141414] rounded"
                 >
@@ -412,9 +424,7 @@ export default function Users() {
                     setDuration(
                       e.target.value === "custom"
                         ? "custom"
-                        : (Number(
-                            e.target.value
-                          ) as 1 | 3 | 12)
+                        : (Number(e.target.value) as 1 | 3 | 12),
                     )
                   }
                   className="w-full p-2 bg-[#141414] rounded"
@@ -429,18 +439,24 @@ export default function Users() {
                   <input
                     type="date"
                     value={customExpiry}
-                    onChange={(e) =>
-                      setCustomExpiry(e.target.value)
-                    }
+                    onChange={(e) => setCustomExpiry(e.target.value)}
                     className="w-full p-2 bg-[#141414] rounded"
                   />
                 )}
 
+                {/* UPDATED BUTTON */}
                 <button
                   onClick={applyMembership}
-                  className="bg-[#FBB040] text-black px-4 py-2 rounded font-medium"
+                  disabled={isAssigningMembership}
+                  className={`px-4 py-2 rounded font-medium transition
+                    ${
+                      isAssigningMembership
+                        ? "bg-[#FBB040]/80 text-black cursor-not-allowed"
+                        : "bg-[#FBB040] text-black hover:bg-[#fbc14a] cursor-pointer"
+                    }
+                  `}
                 >
-                  Assign Membership
+                  {isAssigningMembership ? "Assigning..." : "Assign Membership"}
                 </button>
               </div>
             </div>

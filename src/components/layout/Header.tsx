@@ -98,7 +98,7 @@ export default function Header({
           <div className="flex items-center gap-4 relative" ref={dropdownRef}>
             {/* 🔔 NOTIFICATION */}
             <button
-              className="relative flex-shrink-0 hover:opacity-80"
+              className="relative flex-shrink-0 hover:opacity-80 cursor-pointer"
               onClick={handleBellClick}
             >
               <Bell size={20} className="text-gray-300" />
