@@ -42,13 +42,6 @@ export default function JobModal() {
               {selectedJob.targetPosition}
             </p>
           </div>
-
-          <button
-            onClick={() => dispatch(closeJobModal())}
-            className="text-gray-400 hover:text-white"
-          >
-            ✕
-          </button>
         </div>
 
         <p className="text-sm text-gray-300 mb-4">

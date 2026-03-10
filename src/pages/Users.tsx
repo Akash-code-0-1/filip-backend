@@ -8,15 +8,14 @@ import {
   MapPin,
   Star,
   ChevronDown,
-  MoreVertical,
 } from "lucide-react";
-
 import {
   fetchUsers,
   setSearch,
   setStatusFilter,
   adjustCredits,
   fetchTransactions,
+  assignMembership,
   type User,
 } from "../store/features/usersSlice";
 
@@ -30,9 +29,17 @@ export default function Users() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
   const [amount, setAmount] = useState(0);
-  const [type, setType] = useState("add");
+  const [type, setType] =
+    useState<"add" | "deduct" | "refund" | "bonus">("add");
   const [reason, setReason] = useState("");
+
+  const [tier, setTier] =
+    useState<"free" | "basic" | "premium">("free");
+  const [duration, setDuration] =
+    useState<1 | 3 | 12 | "custom">(1);
+  const [customExpiry, setCustomExpiry] = useState("");
 
   useEffect(() => {
     dispatch(fetchUsers());
@@ -41,14 +48,49 @@ export default function Users() {
   const selectUser = (user: User) => {
     setSelectedUser(user);
     dispatch(fetchTransactions(user.id));
+    setTier(user.membership?.tier || "free");
   };
 
   const applyCredit = () => {
     if (!selectedUser) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    dispatch(adjustCredits({ userId: selectedUser.id, amount, type: type as any, reason }));
+
+    dispatch(
+      adjustCredits({
+        userId: selectedUser.id,
+        amount,
+        type,
+        reason,
+      })
+    );
+
     setAmount(0);
     setReason("");
+  };
+
+  const applyMembership = () => {
+    if (!selectedUser) return;
+
+    let expiresAt: Date | null = null;
+
+    if (tier !== "free") {
+      if (duration === "custom") {
+        expiresAt = customExpiry
+          ? new Date(customExpiry)
+          : null;
+      } else {
+        const d = new Date();
+        d.setMonth(d.getMonth() + duration);
+        expiresAt = d;
+      }
+    }
+
+    dispatch(
+      assignMembership({
+        userId: selectedUser.id,
+        tier,
+        expiresAt,
+      })
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -57,32 +99,65 @@ export default function Users() {
         return "bg-[#4CAF50]/20 text-[#4CAF50]";
       case "Offline":
         return "bg-gray-500/20 text-gray-400";
+      default:
+        return "";
+    }
+  };
+
+  const getTierUI = (tier: string) => {
+    switch (tier) {
+      case "premium":
+        return {
+          color: "bg-[#FBB040]/20 text-[#FBB040]",
+          icon: <Star size={12} fill="#FBB040" />,
+        };
+      case "basic":
+        return {
+          color: "bg-blue-500/20 text-blue-400",
+          icon: <Star size={12} />,
+        };
+      default:
+        return {
+          color: "bg-gray-600/20 text-gray-400",
+          icon: <UsersIcon size={12} />,
+        };
     }
   };
 
   const statsData = [
     { label: "Total Users", value: all.length, icon: UsersIcon },
-    { label: "Available", value: all.filter(u => u.status === "Active").length, icon: UsersIcon },
-    // { label: "Busy", value: all.filter(u => u.status === "Pending").length, icon: Clock },
-    { label: "Offline", value: all.filter(u => u.status === "Offline").length, icon: UsersIcon },
+    {
+      label: "Available",
+      value: all.filter((u) => u.status === "Active").length,
+      icon: UsersIcon,
+    },
+    {
+      label: "Offline",
+      value: all.filter((u) => u.status === "Offline").length,
+      icon: UsersIcon,
+    },
   ];
 
   return (
     <div className="flex min-h-screen bg-[#141414] text-gray-100">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
       <div className="flex-1 flex flex-col min-w-0">
         <Header
           onMenuClick={() => setSidebarOpen(true)}
           title="Users"
-          subtitle="Manage user accounts and credits"
+          subtitle="Manage user accounts, credits & memberships"
         />
 
         <main className="p-4 md:p-6 space-y-5 overflow-x-hidden">
 
-          {/* Stats */}
+          {/* STATS */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {statsData.map((s) => (
-              <div key={s.label} className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5 flex items-center gap-3">
+              <div
+                key={s.label}
+                className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5 flex items-center gap-3"
+              >
                 <s.icon size={20} className="text-gray-400" />
                 <div>
                   <p className="text-2xl font-bold">{s.value}</p>
@@ -92,10 +167,13 @@ export default function Users() {
             ))}
           </div>
 
-          {/* Search & Status Filter */}
+          {/* SEARCH */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
               <input
                 placeholder="Search User By Name, Email, Skills..."
                 onChange={(e) => dispatch(setSearch(e.target.value))}
@@ -105,7 +183,11 @@ export default function Users() {
 
             <button
               onClick={() =>
-                dispatch(setStatusFilter(statusFilter === "All" ? "Active" : "All"))
+                dispatch(
+                  setStatusFilter(
+                    statusFilter === "All" ? "Active" : "All"
+                  )
+                )
               }
               className="flex items-center gap-2 px-4 py-3 bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl text-sm"
             >
@@ -113,121 +195,256 @@ export default function Users() {
             </button>
           </div>
 
-          {/* Users Grid */}
+          {/* USERS GRID */}
           {loading ? (
             <p className="text-gray-400 text-sm">Loading users...</p>
-          ) : filtered.length > 0 ? (
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filtered.map((user) => (
-                <div
-                  key={user.id}
-                  onClick={() => selectUser(user)}
-                  className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-4 cursor-pointer hover:border-[#FBB040]"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <img src={user.avatar} className="w-10 h-10 rounded-full object-cover" />
-                      <div className="min-w-0">
+              {filtered.map((user) => {
+                const tierUI = getTierUI(user.membership?.tier || "free");
+                const isSelected = selectedUser?.id === user.id;
+
+                return (
+                  <div
+                    key={user.id}
+                    onClick={() => selectUser(user)}
+                    className={`bg-[#1f1f1f] border rounded-xl p-4 cursor-pointer transition
+                      ${
+                        isSelected
+                          ? "border-[#FBB040]"
+                          : "border-[#2a2a2a] hover:border-[#FBB040]"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <img
+                        src={user.avatar}
+                        className="w-11 h-11 rounded-full object-cover"
+                      />
+
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm">{user.name}</p>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(user.status)}`}>
+
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(
+                              user.status
+                            )}`}
+                          >
                             {user.status}
                           </span>
-                          <div className="flex items-center gap-1 text-[#FBB040] text-sm">
-                            <Star size={12} fill="#FBB040" />
-                            <span>{user.rating}</span>
-                          </div>
+
+                          <span
+                            className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full capitalize ${tierUI.color}`}
+                          >
+                            {tierUI.icon}
+                            {user.membership?.tier || "free"}
+                          </span>
                         </div>
-                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+
+                        <p className="text-xs text-gray-400 truncate">
+                          {user.email}
+                        </p>
                       </div>
                     </div>
-                    <MoreVertical size={16} className="text-gray-400" />
-                  </div>
 
-                  <div className="flex items-center gap-1 text-xs text-gray-400 mb-3">
-                    <MapPin size={12} /> {user.location}
-                  </div>
+                    <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                      <div className="flex items-center gap-1">
+                        <MapPin size={12} /> {user.location}
+                      </div>
 
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {user.skills?.map(skill => (
-                      <span key={skill} className="text-xs text-gray-300 bg-[#2a2a2a] px-2 py-0.5 rounded">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+                      <div className="flex items-center gap-1 text-[#FBB040]">
+                        <Star size={12} fill="#FBB040" />
+                        {user.rating}
+                      </div>
+                    </div>
 
-                  {/* Credit Info */}
-                  <p className="text-xs text-[#FBB040] mt-2">Credits: {user.credits?.balance ?? 0}</p>
-                </div>
-              ))}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {user.skills?.map((skill) => (
+                        <span
+                          key={skill}
+                          className="text-xs text-gray-300 bg-[#2a2a2a] px-2 py-0.5 rounded"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+
+                    <p className="text-xs text-[#FBB040] mt-3">
+                      Credits: {user.credits?.balance ?? 0}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-          ) : (
-            <p className="text-gray-400 text-sm">No users found.</p>
           )}
 
-          {/* Credit Admin Panel */}
+          {/* ADMIN PANELS (UNCHANGED BELOW) */}
           {selectedUser && (
-            <div className="bg-[#1f1f1f] p-6 rounded-xl space-y-4">
-              <h2 className="text-lg font-semibold">Manage Credits — {selectedUser.name}</h2>
-              <p className="text-sm text-[#FBB040]">Current Balance: {selectedUser.credits.balance}</p>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {/* CREDIT PANEL */}
+              <div className="bg-[#1f1f1f] p-6 rounded-xl space-y-4 border border-[#2a2a2a]">
+                <h2 className="text-lg font-semibold">
+                  Manage Credits — {selectedUser.name}
+                </h2>
 
-              <input
-                type="number"
-                placeholder="Amount"
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full p-2 bg-[#141414] rounded"
-              />
+                <p className="text-sm text-[#FBB040]">
+                  Current Balance: {selectedUser.credits.balance}
+                </p>
 
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full p-2 bg-[#141414] rounded"
-              >
-                <option value="add">Add Credits</option>
-                <option value="deduct">Deduct</option>
-                <option value="refund">Refund</option>
-                <option value="bonus">Promo Bonus</option>
-              </select>
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={amount}
+                  onChange={(e) =>
+                    setAmount(Number(e.target.value))
+                  }
+                  className="w-full p-2 bg-[#141414] rounded"
+                />
 
-              <input
-                placeholder="Reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="w-full p-2 bg-[#141414] rounded"
-              />
+                <select
+                  value={type}
+                  onChange={(e) =>
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    setType(e.target.value as any)
+                  }
+                  className="w-full p-2 bg-[#141414] rounded"
+                >
+                  <option value="add">Add Credits</option>
+                  <option value="deduct">Deduct</option>
+                  <option value="refund">Refund</option>
+                  <option value="bonus">Promo Bonus</option>
+                </select>
 
-              <button onClick={applyCredit} className="bg-[#FBB040] text-black px-4 py-2 rounded">
-                Apply Adjustment
-              </button>
+                <input
+                  placeholder="Reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full p-2 bg-[#141414] rounded"
+                />
 
-              {/* Transaction Table */}
-              <h3 className="mt-6 font-semibold">Credit Transactions</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-gray-400 border-b border-[#2a2a2a]">
-                    <tr>
-                      <th className="text-left py-2">Date</th>
-                      <th className="text-left py-2">Type</th>
-                      <th className="text-left py-2">Amount</th>
-                      <th className="text-left py-2">Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((t) => (
-                      <tr key={t.id} className="border-b border-[#2a2a2a]">
-                        <td className="py-2">{t.createdAt.toLocaleDateString()}</td>
-                        <td className="py-2 capitalize">{t.type}</td>
-                        <td className="py-2 text-[#FBB040]">{t.type === "deduct" ? "-" : "+"}{t.amount}</td>
-                        <td className="py-2">{t.reason}</td>
+                <button
+                  onClick={applyCredit}
+                  className="bg-[#FBB040] text-black px-4 py-2 rounded font-medium"
+                >
+                  Apply Adjustment
+                </button>
+
+                <h3 className="mt-6 font-semibold">
+                  Credit Transactions
+                </h3>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-gray-400 border-b border-[#2a2a2a]">
+                      <tr>
+                        <th className="text-left py-2">Date</th>
+                        <th className="text-left py-2">Type</th>
+                        <th className="text-left py-2">Amount</th>
+                        <th className="text-left py-2">Reason</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {transactions.map((t) => (
+                        <tr
+                          key={t.id}
+                          className="border-b border-[#2a2a2a]"
+                        >
+                          <td className="py-2">
+                            {t.createdAt.toLocaleDateString()}
+                          </td>
+                          <td className="py-2 capitalize">{t.type}</td>
+                          <td className="py-2 text-[#FBB040]">
+                            {t.type === "deduct" ? "-" : "+"}
+                            {t.amount}
+                          </td>
+                          <td className="py-2">{t.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* MEMBERSHIP PANEL */}
+              <div className="bg-[#1f1f1f] p-6 rounded-xl border border-[#2a2a2a] space-y-5">
+                <h2 className="text-lg font-semibold">
+                  Membership Management
+                </h2>
+
+                <div className="text-sm text-gray-400 space-y-1">
+                  <p>
+                    Current Tier:{" "}
+                    <span className="text-[#FBB040] capitalize">
+                      {selectedUser.membership?.tier || "free"}
+                    </span>
+                  </p>
+
+                  {selectedUser.membership?.expiresAt && (
+                    <p>
+                      Expires On:{" "}
+                      {new Date(
+                        selectedUser.membership.expiresAt
+                      ).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+
+                <select
+                  value={tier}
+                  onChange={(e) =>
+                    setTier(
+                      e.target.value as
+                        | "free"
+                        | "basic"
+                        | "premium"
+                    )
+                  }
+                  className="w-full p-2 bg-[#141414] rounded"
+                >
+                  <option value="free">Free</option>
+                  <option value="basic">Basic</option>
+                  <option value="premium">Premium</option>
+                </select>
+
+                <select
+                  value={duration}
+                  onChange={(e) =>
+                    setDuration(
+                      e.target.value === "custom"
+                        ? "custom"
+                        : (Number(
+                            e.target.value
+                          ) as 1 | 3 | 12)
+                    )
+                  }
+                  className="w-full p-2 bg-[#141414] rounded"
+                >
+                  <option value={1}>1 Month</option>
+                  <option value={3}>3 Months</option>
+                  <option value={12}>12 Months</option>
+                  <option value="custom">Custom Expiry</option>
+                </select>
+
+                {duration === "custom" && (
+                  <input
+                    type="date"
+                    value={customExpiry}
+                    onChange={(e) =>
+                      setCustomExpiry(e.target.value)
+                    }
+                    className="w-full p-2 bg-[#141414] rounded"
+                  />
+                )}
+
+                <button
+                  onClick={applyMembership}
+                  className="bg-[#FBB040] text-black px-4 py-2 rounded font-medium"
+                >
+                  Assign Membership
+                </button>
               </div>
             </div>
           )}
-
         </main>
       </div>
     </div>

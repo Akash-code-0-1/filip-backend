@@ -1,5 +1,8 @@
-
-import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  createAsyncThunk,
+  type PayloadAction,
+} from "@reduxjs/toolkit";
 import {
   collection,
   getDocs,
@@ -10,11 +13,12 @@ import {
   updateDoc,
   increment,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
 } from "firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 
-/* ---------------- TYPES ---------------- */
+/* ================= TYPES ================= */
+
 export interface CreditTransaction {
   id: string;
   userId: string;
@@ -22,6 +26,12 @@ export interface CreditTransaction {
   type: string;
   reason: string;
   createdAt: Date;
+}
+
+export interface Membership {
+  tier: "free" | "basic" | "premium";
+  expiresAt: Date | null;
+  startedAt: Date | null;
 }
 
 export interface User {
@@ -37,28 +47,45 @@ export interface User {
   credits: {
     balance: number;
   };
+  membership: Membership;
 }
 
-/* ---------------- STATE ---------------- */
+/* ================= STATE ================= */
+
 interface UsersState {
   all: User[];
   filtered: User[];
   transactions: CreditTransaction[];
   search: string;
-  statusFilter: "All" | "Active" | "Offline"
+  statusFilter: "All" | "Active" | "Offline";
   loading: boolean;
 }
 
-/* ---------------- THUNKS ---------------- */
+const initialState: UsersState = {
+  all: [],
+  filtered: [],
+  transactions: [],
+  search: "",
+  statusFilter: "All",
+  loading: false,
+};
+
+/* ================= THUNKS ================= */
+
+// Fetch users
 export const fetchUsers = createAsyncThunk<User[]>(
   "users/fetchUsers",
   async () => {
-    const q = query(collection(firestore, "users"), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
+    const q = query(
+      collection(firestore, "users"),
+      orderBy("createdAt", "desc")
+    );
+    const snap = await getDocs(q);
 
-    return snapshot.docs.map((docSnap) => {
+    return snap.docs.map((docSnap) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data: any = docSnap.data();
+
       return {
         id: docSnap.id,
         name: data.profile?.name || "Unknown",
@@ -66,16 +93,27 @@ export const fetchUsers = createAsyncThunk<User[]>(
         location: data.profile?.city || "Unknown",
         skills: data.skills || data.profile?.skills || [],
         rating: data.rating || data.profile?.rating || 0,
-        avatar: data.profile?.photo || "https://via.placeholder.com/40",
+        avatar:
+          data.profile?.photo ||
+          "https://via.placeholder.com/40",
         status: data.active ? "Active" : "Offline",
         credits: data.credits || { balance: 0 },
-        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        membership: {
+          tier: data.membership?.tier || "free",
+          expiresAt: data.membership?.expiresAt
+            ? data.membership.expiresAt.toDate()
+            : null,
+          startedAt: data.membership?.startedAt
+            ? data.membership.startedAt.toDate()
+            : null,
+        },
+        createdAt: data.createdAt?.toDate?.() || new Date(),
       };
     });
   }
 );
 
-// Fetch transactions for selected user
+// Fetch credit transactions
 export const fetchTransactions = createAsyncThunk(
   "users/fetchTransactions",
   async (userId: string) => {
@@ -84,13 +122,14 @@ export const fetchTransactions = createAsyncThunk(
       where("userId", "==", userId),
       orderBy("createdAt", "desc")
     );
+
     const snap = await getDocs(q);
 
-    return snap.docs.map((docSnap) => {
+    return snap.docs.map((d) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data: any = docSnap.data();
+      const data: any = d.data();
       return {
-        id: docSnap.id,
+        id: d.id,
         userId: data.userId,
         amount: data.amount,
         type: data.type,
@@ -118,12 +157,10 @@ export const adjustCredits = createAsyncThunk(
     const userRef = doc(firestore, "users", userId);
     const change = type === "deduct" ? -amount : amount;
 
-    // Update user's balance atomically
     await updateDoc(userRef, {
       "credits.balance": increment(change),
     });
 
-    // Log transaction
     await addDoc(collection(firestore, "creditTransactions"), {
       userId,
       amount,
@@ -136,24 +173,49 @@ export const adjustCredits = createAsyncThunk(
   }
 );
 
-/* ---------------- FILTER LOGIC ---------------- */
+// Assign membership
+export const assignMembership = createAsyncThunk(
+  "users/assignMembership",
+  async ({
+    userId,
+    tier,
+    expiresAt,
+  }: {
+    userId: string;
+    tier: "free" | "basic" | "premium";
+    expiresAt: Date | null;
+  }) => {
+    const userRef = doc(firestore, "users", userId);
+
+    await updateDoc(userRef, {
+      membership: {
+        tier,
+        expiresAt,
+        startedAt: tier === "free" ? null : serverTimestamp(),
+      },
+    });
+
+    return { userId, tier, expiresAt };
+  }
+);
+
+/* ================= FILTER ================= */
+
 const applyFilters = (state: UsersState) => {
-  state.filtered = state.all.filter((user) => {
-    const statusMatch = state.statusFilter === "All" || user.status === state.statusFilter;
-    const searchText = `${user.name} ${user.email} ${user.skills.join(" ")}`.toLowerCase();
-    return statusMatch && searchText.includes(state.search);
+  state.filtered = state.all.filter((u) => {
+    const statusMatch =
+      state.statusFilter === "All" ||
+      u.status === state.statusFilter;
+
+    const text = `${u.name} ${u.email} ${u.skills.join(
+      " "
+    )}`.toLowerCase();
+
+    return statusMatch && text.includes(state.search);
   });
 };
 
-/* ---------------- SLICE ---------------- */
-const initialState: UsersState = {
-  all: [],
-  filtered: [],
-  transactions: [],
-  search: "",
-  statusFilter: "All",
-  loading: false,
-};
+/* ================= SLICE ================= */
 
 const usersSlice = createSlice({
   name: "users",
@@ -163,32 +225,53 @@ const usersSlice = createSlice({
       state.search = action.payload.toLowerCase();
       applyFilters(state);
     },
-    setStatusFilter(state, action: PayloadAction<UsersState["statusFilter"]>) {
+    setStatusFilter(
+      state,
+      action: PayloadAction<UsersState["statusFilter"]>
+    ) {
       state.statusFilter = action.payload;
       applyFilters(state);
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchUsers.pending, (state) => { state.loading = true; })
-      .addCase(fetchUsers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.all = action.payload;
-        applyFilters(state);
+      .addCase(fetchUsers.pending, (s) => {
+        s.loading = true;
       })
-      .addCase(fetchUsers.rejected, (state) => { state.loading = false; })
-
-      .addCase(fetchTransactions.fulfilled, (state, action) => {
-        state.transactions = action.payload;
+      .addCase(fetchUsers.fulfilled, (s, a) => {
+        s.loading = false;
+        s.all = a.payload;
+        applyFilters(s);
+      })
+      .addCase(fetchUsers.rejected, (s) => {
+        s.loading = false;
       })
 
-      .addCase(adjustCredits.fulfilled, (state, action) => {
-        const user = state.all.find(u => u.id === action.payload.userId);
-        if (user) user.credits.balance += action.payload.creditChange;
-        applyFilters(state);
+      .addCase(fetchTransactions.fulfilled, (s, a) => {
+        s.transactions = a.payload;
+      })
+
+      .addCase(adjustCredits.fulfilled, (s, a) => {
+        const u = s.all.find(
+          (x) => x.id === a.payload.userId
+        );
+        if (u) u.credits.balance += a.payload.creditChange;
+        applyFilters(s);
+      })
+
+      .addCase(assignMembership.fulfilled, (s, a) => {
+        const u = s.all.find(
+          (x) => x.id === a.payload.userId
+        );
+        if (u) {
+          u.membership.tier = a.payload.tier;
+          u.membership.expiresAt = a.payload.expiresAt;
+        }
       });
   },
 });
 
-export const { setSearch, setStatusFilter } = usersSlice.actions;
+export const { setSearch, setStatusFilter } =
+  usersSlice.actions;
+
 export default usersSlice.reducer;

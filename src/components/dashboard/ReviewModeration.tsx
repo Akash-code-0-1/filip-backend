@@ -4,7 +4,7 @@ import { Star, CheckCircle } from "lucide-react";
 import {
   fetchPendingReviews,
   updateReviewStatus,
-  Review,
+  type Review,
 } from "../../store/features/reviewsSlice";
 import type { RootState, AppDispatch } from "../../store";
 
