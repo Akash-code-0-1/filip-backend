@@ -348,6 +348,7 @@ export default function Users() {
 
                 <select
                   value={type}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onChange={(e) => setType(e.target.value as any)}
                   className="w-full p-2 bg-[#141414] rounded"
                 >
