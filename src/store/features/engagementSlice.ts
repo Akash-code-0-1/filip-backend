@@ -35,7 +35,7 @@ export const fetchEngagementStats = createAsyncThunk(
     try {
       // Fetch pending job applications
       const pendingSnap = await getDocs(
-        query(collection(firestore, "jobApplications"), where("status", "==", "pending"))
+        query(collection(firestore, "engagements"), where("status", "==", "pending"))
       );
       const pendingApplications: JobApplication[] = pendingSnap.docs.map((doc) => ({
         id: doc.id,
