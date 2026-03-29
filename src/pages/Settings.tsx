@@ -14,6 +14,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import {
   updateProfileInfo,
   updateProfilePicture,
+  setPaymentEnabled, // import dis
 } from "../store/features/adminSlice";
 import {
   updateUserPassword,
@@ -31,6 +32,7 @@ interface RootState {
     email: string;
     phone: string;
     profilePicture: string;
+    paymentEnabled: boolean; //also this one
   };
   password: {
     loading: boolean;
@@ -63,6 +65,12 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // ✅ NEW STATE for payment toggle
+  // const [paymentEnabled, setPaymentEnabled] = useState(false); nahhhhhhhh
+  const paymentEnabled = useTypedSelector(
+    (state) => state.admin.paymentEnabled,
+  );
+
   // Fetch admin data
   useEffect(() => {
     const fetchAdmin = async () => {
@@ -75,6 +83,7 @@ export default function SettingsPage() {
       if (snapshot.exists()) {
         dispatch(updateProfileInfo(snapshot.data()));
         dispatch(updateProfilePicture(snapshot.data().profilePicture));
+        dispatch(setPaymentEnabled(snapshot.data().paymentEnabled ?? false)); // also this line
       }
     };
     fetchAdmin();
@@ -152,6 +161,16 @@ export default function SettingsPage() {
     }
 
     dispatch(updateUserPassword({ currentPassword, newPassword }));
+  };
+
+  // ✅ Toggle handler ============================== replace by ratul
+  const handlePaymentToggle = async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const newValue = !paymentEnabled;
+    dispatch(setPaymentEnabled(newValue));
+    const adminRef = doc(firestore, "admin", uid);
+    await updateDoc(adminRef, { paymentEnabled: newValue });
   };
 
   return (
@@ -351,6 +370,27 @@ export default function SettingsPage() {
 
                 {/* Error message */}
                 {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
+              </div>
+
+              {/* ✅ NEW PAYMENT TOGGLE */}
+              <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-5 flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">Payment System</h3>
+                  <p className="text-xs text-gray-400">
+                    Enable or disable payment functionality
+                  </p>
+                </div>
+
+                <button
+                  onClick={handlePaymentToggle}
+                  className={`px-5 py-2 rounded-lg text-sm font-medium transition ${
+                    paymentEnabled
+                      ? "bg-green-500 text-black"
+                      : "bg-red-500 text-white"
+                  }`}
+                >
+                  {paymentEnabled ? "Enabled" : "Disabled"}
+                </button>
               </div>
             </div>
           )}

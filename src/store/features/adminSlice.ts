@@ -6,6 +6,7 @@ const initialState = {
   email: "",
   phone: "",
   profilePicture: "",
+  paymentEnabled: false, // add this here
 };
 
 const adminSlice = createSlice({
@@ -18,8 +19,11 @@ const adminSlice = createSlice({
     updateProfilePicture: (state, action) => {
       state.profilePicture = action.payload;
     },
+    setPaymentEnabled: (state, action) => { // add this here
+      state.paymentEnabled = action.payload; // and this
+    }, //donot forget to close akash
   },
 });
 
-export const { updateProfileInfo, updateProfilePicture } = adminSlice.actions;
+export const { updateProfileInfo, updateProfilePicture, setPaymentEnabled } = adminSlice.actions; // export o kintu kora lagbo bujis
 export default adminSlice.reducer;
